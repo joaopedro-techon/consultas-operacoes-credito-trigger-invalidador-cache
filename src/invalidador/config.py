@@ -15,6 +15,8 @@ class Config:
     valkey_timeout_conexao_s: float
     # consultas.cache.ttl da API (5 min)
     ttl_operacao_ms: int
+    # consultas.cache.ttl-custodia da API (24 h)
+    ttl_custodia_ms: int
 
     @staticmethod
     def do_ambiente() -> "Config":
@@ -28,4 +30,5 @@ class Config:
             valkey_timeout_s=float(env.get("VALKEY_TIMEOUT_MS", "200")) / 1000,
             valkey_timeout_conexao_s=float(env.get("VALKEY_TIMEOUT_CONEXAO_MS", "500")) / 1000,
             ttl_operacao_ms=int(env.get("CACHE_TTL_OPERACAO_MS", "300000")),
+            ttl_custodia_ms=int(env.get("CACHE_TTL_CUSTODIA_MS", "86400000")),
         )

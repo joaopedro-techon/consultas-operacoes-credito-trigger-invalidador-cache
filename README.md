@@ -13,6 +13,17 @@ versão no cache ausente ou < V  → hash vira {versao=V, marcador=1}, TTL de 5 
 versão no cache ≥ V             → intacto
 ```
 
+Por evento, na ordem do shard (vence a última ação por chave; entre marcações, a maior V):
+
+| Evento | `op:{id}:{custodia}` | `custodia-vc:{id}` |
+| --- | --- | --- |
+| MODIFY com V | marcador V | — |
+| INSERT com V | marcador V | marcador V (TTL 24 h) |
+| REMOVE | `DEL` | `DEL` |
+| versão ausente ou inválida | `DEL` | `DEL` se INSERT |
+
+A chave compartilhada `custodia:{id}` (contrato com a fonte primária, ADR-0017) nunca é tocada.
+
 A API só substitui um hash com marcador quando lê a versão V ou uma mais nova. Por isso, uma leitura atrasada com
 o dado antigo não volta a preencher o cache.
 
@@ -24,7 +35,8 @@ o dado antigo não volta a preencher o cache.
 | `VALKEY_TLS` | `false` | `true` em ElastiCache com TLS |
 | `VALKEY_USUARIO` / `VALKEY_SENHA` | vazio | Autenticação (ACL), se houver |
 | `VALKEY_TIMEOUT_MS` / `VALKEY_TIMEOUT_CONEXAO_MS` | `200` / `500` | Timeouts de comando e de conexão |
-| `CACHE_TTL_OPERACAO_MS` | `300000` | TTL do marcador; igual a `consultas.cache.ttl` da API |
+| `CACHE_TTL_OPERACAO_MS` | `300000` | TTL do marcador em `op:*`; igual a `consultas.cache.ttl` da API |
+| `CACHE_TTL_CUSTODIA_MS` | `86400000` | TTL do marcador em `custodia-vc:*`; igual a `consultas.cache.ttl-custodia` da API |
 
 Handler: `invalidador.handler.handler`.
 

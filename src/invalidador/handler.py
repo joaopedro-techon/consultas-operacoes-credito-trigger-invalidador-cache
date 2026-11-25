@@ -1,7 +1,7 @@
 """Handler da Lambda ligada ao DynamoDB Streams (NEW_IMAGE) da tabela ``operacoes-credito``.
 
-Para cada operação gravada numa custódia na versão V, grava o marcador de invalidação em
-``op:{id_operacao}:{custodia}``. Resposta no formato ``ReportBatchItemFailures``.
+Lê o lote, monta o plano (ação final por chave, ver ``invalidador.plano``) e o executa no Valkey num pipeline.
+Resposta no formato ``ReportBatchItemFailures``.
 """
 
 import json
@@ -10,51 +10,47 @@ import logging
 from redis import Redis
 
 from invalidador.config import Config
-from invalidador.marcador import GRAVADO, Marcador, chave_operacao
-from invalidador.registro import RegistroInvalido, ler
+from invalidador.marcador import Marcador
+from invalidador.plano import planejar
+from invalidador.registro import Registro, RegistroInvalido, ler
 
 log = logging.getLogger("invalidador")
 log.setLevel(logging.INFO)
 
-_marcador: Marcador | None = None
+_estado: tuple[Config, Marcador] | None = None
 
 
 def handler(event: dict, context=None) -> dict:
-    # As 9 linhas de uma transação (e repetições entre lotes) viram uma gravação por chave, na maior versão:
-    # o resultado não depende da ordem dos registros no lote.
-    versoes: dict[str, int] = {}
+    config, marcador = _obter_estado()
+    registros: list[Registro] = []
     for bruto in event.get("Records", []):
         try:
-            registro = ler(bruto)
+            registros.append(ler(bruto))
         except (RegistroInvalido, KeyError) as erro:
             _logar("registro_invalido", motivo=str(erro), sequencia=_sequencia(bruto))
-            continue
-        if registro.evento not in ("INSERT", "MODIFY"):
-            _logar("evento_ignorado", evento=registro.evento, id_operacao=registro.id_operacao,
-                   custodia=registro.custodia)
-            continue
-        if registro.versao is None:
-            _logar("versao_invalida", id_operacao=registro.id_operacao, custodia=registro.custodia)
-            continue
-        chave = chave_operacao(registro.id_operacao, registro.custodia)
-        versoes[chave] = max(registro.versao, versoes.get(chave, registro.versao))
 
-    resultados = _obter_marcador().gravar(versoes)
-    for chave, resultado in resultados.items():
-        _logar("marcador_gravado" if resultado == GRAVADO else "marcador_rejeitado", chave=chave,
-               versao=versoes[chave])
+    plano = planejar(registros, config.ttl_operacao_ms, config.ttl_custodia_ms)
+    if plano.versoes_invalidas:
+        _logar("versao_invalida", registros=plano.versoes_invalidas)
+    resultado = marcador.executar(plano)
+    for chave in resultado.gravados:
+        _logar("marcador_gravado", chave=chave, versao=plano.marcar[chave].versao)
+    for chave in resultado.rejeitados:
+        _logar("marcador_rejeitado", chave=chave, versao=plano.marcar[chave].versao)
+    for chave in resultado.removidos:
+        _logar("chave_removida", chave=chave)
     return {"batchItemFailures": []}
 
 
 def redefinir() -> None:
     """Descarta a conexão reaproveitada entre invocações (testes e troca de configuração)."""
-    global _marcador
-    _marcador = None
+    global _estado
+    _estado = None
 
 
-def _obter_marcador() -> Marcador:
-    global _marcador
-    if _marcador is None:
+def _obter_estado() -> tuple[Config, Marcador]:
+    global _estado
+    if _estado is None:
         config = Config.do_ambiente()
         cliente = Redis(
             host=config.valkey_host,
@@ -65,8 +61,8 @@ def _obter_marcador() -> Marcador:
             socket_timeout=config.valkey_timeout_s,
             socket_connect_timeout=config.valkey_timeout_conexao_s,
         )
-        _marcador = Marcador(cliente, config.ttl_operacao_ms)
-    return _marcador
+        _estado = (config, Marcador(cliente))
+    return _estado
 
 
 def _sequencia(bruto: dict) -> str | None:
