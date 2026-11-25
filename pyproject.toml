@@ -1,0 +1,25 @@
+[project]
+name = "invalidador-cache"
+version = "0.1.0"
+description = "Lambda no DynamoDB Streams que grava o marcador de invalidação do cache versionado da visão consolidada (ADR-0018)"
+requires-python = ">=3.13"
+dependencies = [
+    "redis>=8.2,<9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2,<10",
+    "testcontainers>=4.15,<5",
+]
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
