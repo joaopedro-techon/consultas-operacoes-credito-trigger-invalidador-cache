@@ -1,0 +1,15 @@
+# Copie para terraform.tfvars (git-ignored) e ajuste. Nao versione valores reais.
+aws_region = "sa-east-1"
+
+stream_arn               = "arn:aws:dynamodb:sa-east-1:123456789012:table/operacoes-credito/stream/2026-01-01T00:00:00.000"
+vpc_id                   = "vpc-0123456789abcdef0"
+subnet_ids               = ["subnet-aaaa", "subnet-bbbb", "subnet-cccc"]
+valkey_security_group_id = "sg-0123456789abcdef0"
+valkey_host              = "consultas.xxxxxx.ng.0001.sae1.cache.amazonaws.com"
+valkey_tls               = true
+
+alarm_actions = ["arn:aws:sns:sa-east-1:123456789012:consultas-alarmes"]
+
+tags = {
+  sistema = "consultas-operacoes-credito"
+}

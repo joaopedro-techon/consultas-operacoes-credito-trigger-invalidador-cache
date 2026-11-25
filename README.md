@@ -67,3 +67,7 @@ python -m venv .venv
 Os testes chamam o handler com eventos do Streams contra um Valkey real (`valkey/valkey:9.0.8-alpine`, via
 Testcontainers). Um teste de contrato roda o script de gravação da API (`tests/fixtures`) sobre o marcador. Se o
 script mudar na API, a cópia em `tests/fixtures` precisa mudar junto.
+
+## Deploy
+
+Terraform em [`infra/lambda`](infra/lambda/README.md): função, mapeamento do Streams, DLQ, alarmes, IAM e rede. O pacote é montado por `python scripts/empacotar.py`, que gera `build/pacote`.

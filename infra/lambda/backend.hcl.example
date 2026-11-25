@@ -1,0 +1,10 @@
+# Copie para backend.hcl (git-ignored) e use: terraform init -backend-config=backend.hcl
+bucket       = "<bucket-de-state-terraform>"
+region       = "sa-east-1"
+encrypt      = true
+use_lockfile = true # lock nativo no S3 (Terraform >= 1.10), sem tabela DynamoDB
+
+# Chave própria deste repositório e deste módulo. Nunca reaproveite a chave de outro repositório
+# (consultas-operacoes-credito/..., consultas-operacoes-credito-mainframe/...): um apply com o state errado
+# destruiria os recursos do outro.
+key = "consultas-operacoes-credito-trigger-invalidador-cache/lambda/terraform.tfstate"
