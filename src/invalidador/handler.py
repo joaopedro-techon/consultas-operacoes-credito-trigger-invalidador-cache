@@ -20,7 +20,9 @@ _marcador: Marcador | None = None
 
 
 def handler(event: dict, context=None) -> dict:
-    marcador = _obter_marcador()
+    # As 9 linhas de uma transação (e repetições entre lotes) viram uma gravação por chave, na maior versão:
+    # o resultado não depende da ordem dos registros no lote.
+    versoes: dict[str, int] = {}
     for bruto in event.get("Records", []):
         try:
             registro = ler(bruto)
@@ -34,9 +36,13 @@ def handler(event: dict, context=None) -> dict:
         if registro.versao is None:
             _logar("versao_invalida", id_operacao=registro.id_operacao, custodia=registro.custodia)
             continue
-        resultado = marcador.gravar(chave_operacao(registro.id_operacao, registro.custodia), registro.versao)
-        _logar("marcador_gravado" if resultado == GRAVADO else "marcador_rejeitado",
-               id_operacao=registro.id_operacao, custodia=registro.custodia, versao=registro.versao)
+        chave = chave_operacao(registro.id_operacao, registro.custodia)
+        versoes[chave] = max(registro.versao, versoes.get(chave, registro.versao))
+
+    resultados = _obter_marcador().gravar(versoes)
+    for chave, resultado in resultados.items():
+        _logar("marcador_gravado" if resultado == GRAVADO else "marcador_rejeitado", chave=chave,
+               versao=versoes[chave])
     return {"batchItemFailures": []}
 
 

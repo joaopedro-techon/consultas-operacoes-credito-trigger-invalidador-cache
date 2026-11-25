@@ -9,6 +9,7 @@ Chaves (formato que a API de consultas lê):
 
 from redis import Redis
 from redis.commands.core import Script
+from redis.exceptions import NoScriptError
 
 # KEYS[1]: o hash; ARGV[1]: a versão V em epoch ms; ARGV[2]: o TTL em ms.
 # Versão no cache ausente (ou fora do formato) ou menor que V: o hash vira só {versao=V, marcador=1}, com TTL (1).
@@ -34,11 +35,31 @@ def chave_operacao(id_operacao: str, custodia: str) -> str:
 
 
 class Marcador:
-    """Grava marcadores com ``EVALSHA`` (o cliente cai para ``EVAL`` em ``NOSCRIPT``)."""
+    """Grava marcadores com ``EVALSHA``, todos num pipeline.
+
+    Antes de executar, o pipeline confere se o script está no Valkey (``SCRIPT EXISTS``) e o carrega se não estiver.
+    Se o script sumir entre a conferência e a execução (``SCRIPT FLUSH``, failover, outro nó), o ``NOSCRIPT`` faz
+    o lote ser repetido uma vez, já com o script recarregado. Repetir é seguro porque o script é idempotente.
+    """
 
     def __init__(self, cliente: Redis, ttl_ms: int):
+        self._cliente = cliente
         self._script: Script = cliente.register_script(GRAVAR_MARCADOR)
         self._ttl_ms = ttl_ms
 
-    def gravar(self, chave: str, versao: int) -> int:
-        return int(self._script(keys=[chave], args=[versao, self._ttl_ms]))
+    def gravar(self, versoes: dict[str, int]) -> dict[str, int]:
+        """Um marcador por chave, na versão dada. Devolve ``GRAVADO`` ou ``REJEITADO`` por chave."""
+        if not versoes:
+            return {}
+        chaves = list(versoes)
+        try:
+            resultados = self._executar(chaves, versoes)
+        except NoScriptError:
+            resultados = self._executar(chaves, versoes)
+        return {chave: int(resultado) for chave, resultado in zip(chaves, resultados)}
+
+    def _executar(self, chaves: list[str], versoes: dict[str, int]) -> list:
+        with self._cliente.pipeline(transaction=False) as pipeline:
+            for chave in chaves:
+                self._script(keys=[chave], args=[versoes[chave], self._ttl_ms], client=pipeline)
+            return pipeline.execute()
