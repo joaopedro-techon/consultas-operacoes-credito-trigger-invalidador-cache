@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from redis import Redis
 from testcontainers.core.container import DockerContainer
@@ -40,12 +42,14 @@ def evento(*registros: dict) -> dict:
 
 
 def registro(evento_nome: str, id_operacao: int, custodia: str, bloco: str = "OPERACAO",
-             versao: str | None = "2026-11-25T10:00:00.123Z", sequencia: str = "100") -> dict:
+             versao: str | None = "2026-11-25T10:00:00.123Z", sequencia: str = "100",
+             criacao: float | None = None) -> dict:
     chaves = {
         "numero_operacao": {"N": str(id_operacao)},
         "custodia_expand": {"S": f"{custodia}#EXPAND#{bloco}"},
     }
-    dados = {"Keys": chaves, "SequenceNumber": sequencia, "StreamViewType": "NEW_IMAGE"}
+    dados = {"Keys": chaves, "SequenceNumber": sequencia, "StreamViewType": "NEW_IMAGE",
+             "ApproximateCreationDateTime": criacao if criacao is not None else time.time()}
     if evento_nome != "REMOVE":
         imagem = dict(chaves)
         imagem["texto_detalhe"] = {"B": "H4sIAAAAAAAA/6uuBQBDv6ajAgAAAA=="}

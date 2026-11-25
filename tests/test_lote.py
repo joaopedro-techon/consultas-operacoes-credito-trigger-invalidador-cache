@@ -39,7 +39,7 @@ def test_varias_operacoes_e_custodias_no_mesmo_lote(valkey):
     chaves = [(ID, "SF"), (ID, "NSF"), (ID + 1, "F5"), (ID + 2, "OD")]
     valkey.config_resetstat()
 
-    handler(evento(*(registro("INSERT", id_operacao, custodia) for id_operacao, custodia in chaves)))
+    handler(evento(*(registro("MODIFY", id_operacao, custodia) for id_operacao, custodia in chaves)))
 
     assert execucoes_do_script(valkey) == len(chaves)
     for id_operacao, custodia in chaves:
