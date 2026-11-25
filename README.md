@@ -38,7 +38,21 @@ o dado antigo não volta a preencher o cache.
 | `CACHE_TTL_OPERACAO_MS` | `300000` | TTL do marcador em `op:*`; igual a `consultas.cache.ttl` da API |
 | `CACHE_TTL_CUSTODIA_MS` | `86400000` | TTL do marcador em `custodia-vc:*`; igual a `consultas.cache.ttl-custodia` da API |
 
+| `METRICAS_NAMESPACE` | `ConsultasOperacoesCredito/InvalidadorCache` | Namespace das métricas no CloudWatch |
+
 Handler: `invalidador.handler.handler`.
+
+## Falhas, métricas e logs
+
+- Se o Valkey falhar (conexão, timeout ou outro erro), todos os registros do lote voltam em `batchItemFailures`
+  e o Lambda tenta de novo. O plano é idempotente, então reprocessar não tem efeito colateral. O cliente faz no
+  máximo uma repetição curta, para não prender a invocação.
+- Métricas em EMF (JSON no stdout, sem chamada à API):
+  - por lote: `TamanhoLote`, `ChavesRemovidas`, `VersoesInvalidas`, `RegistrosInvalidos`, `FalhasValkey` e
+    `AtrasoMs` (agora menos o `ApproximateCreationDateTime` do registro mais antigo);
+  - por `TipoChave` (`op` ou `custodia-vc`): `MarcadoresGravados` e `MarcadoresRejeitados`.
+- Logs em JSON, uma linha por evento, com `resultado` e no máximo chave, versão, quantidade de registros,
+  sequência e o tipo do erro. Nunca levam `texto_detalhe` nem outros atributos da imagem.
 
 ## Testes
 
