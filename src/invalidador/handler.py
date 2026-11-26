@@ -57,16 +57,17 @@ def _processar(brutos: list[dict], metricas: Metricas) -> dict:
 
     metricas.contar("VersoesInvalidas", plano.versoes_invalidas)
     metricas.contar("ChavesRemovidas", len(resultado.removidos))
-    metricas.contar_chaves("MarcadoresGravados", resultado.gravados)
-    metricas.contar_chaves("MarcadoresRejeitados", resultado.rejeitados)
+    metricas.contar_chaves("MarcadoresGravados", [alvo.chave for alvo in resultado.gravados])
+    metricas.contar_chaves("MarcadoresRejeitados", [alvo.chave for alvo in resultado.rejeitados])
     if plano.versoes_invalidas:
         _logar("versao_invalida", registros=plano.versoes_invalidas)
-    for chave in resultado.gravados:
-        _logar("marcador_gravado", chave=chave, versao=plano.marcar[chave].versao)
-    for chave in resultado.rejeitados:
-        _logar("marcador_rejeitado", chave=chave, versao=plano.marcar[chave].versao)
-    for chave in resultado.removidos:
-        _logar("chave_removida", chave=chave)
+    # Alvo de um bloco no hash de versão por bloco: chave#bloco
+    for alvo in resultado.gravados:
+        _logar("marcador_gravado", chave=str(alvo), versao=plano.marcar[alvo].versao)
+    for alvo in resultado.rejeitados:
+        _logar("marcador_rejeitado", chave=str(alvo), versao=plano.marcar[alvo].versao)
+    for alvo in resultado.removidos:
+        _logar("chave_removida", chave=str(alvo))
     return {"batchItemFailures": []}
 
 

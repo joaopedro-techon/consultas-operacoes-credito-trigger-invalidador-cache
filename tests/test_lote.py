@@ -16,14 +16,15 @@ def execucoes_do_script(valkey) -> int:
     return sum(estatisticas.get(f"cmdstat_{comando}", {}).get("calls", 0) for comando in ("evalsha", "eval"))
 
 
-def test_nove_linhas_da_mesma_transacao_viram_uma_gravacao(valkey):
+def test_nove_linhas_da_mesma_transacao_viram_uma_gravacao_no_hash_unico_e_uma_por_bloco(valkey):
     lote = evento(*(registro("MODIFY", ID, "SF", bloco=bloco, sequencia=str(i)) for i, bloco in enumerate(BLOCOS)))
     valkey.config_resetstat()
 
     handler(lote)
 
-    assert execucoes_do_script(valkey) == 1
+    assert execucoes_do_script(valkey) == 1 + len(BLOCOS)
     assert valkey.hget(f"op:{ID}:SF", "marcador") == "1"
+    assert all(valkey.hget(f"opb:{ID}:SF", f"m:{bloco.lower()}") == "1" for bloco in BLOCOS)
 
 
 @pytest.mark.parametrize("ordem", [["10:00:00.100", "10:00:00.200"], ["10:00:00.200", "10:00:00.100"]])
@@ -41,7 +42,7 @@ def test_varias_operacoes_e_custodias_no_mesmo_lote(valkey):
 
     handler(evento(*(registro("MODIFY", id_operacao, custodia) for id_operacao, custodia in chaves)))
 
-    assert execucoes_do_script(valkey) == len(chaves)
+    assert execucoes_do_script(valkey) == 2 * len(chaves)  # op: e opb:
     for id_operacao, custodia in chaves:
         assert valkey.hgetall(f"op:{id_operacao}:{custodia}")["marcador"] == "1"
 

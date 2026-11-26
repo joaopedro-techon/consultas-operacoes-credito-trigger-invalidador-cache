@@ -80,12 +80,14 @@ def test_metricas_do_lote(valkey, capsys):
     saida = capsys.readouterr().out
     total = totais(saida)
     assert total["TamanhoLote"] == 5
-    assert total["ChavesRemovidas"] == 3  # REMOVE: op + custodia-vc; versão inválida: op
+    # REMOVE do bloco operacao: op + bloco no opb + custodia-vc; versão inválida: op + bloco no opb
+    assert total["ChavesRemovidas"] == 5
     assert total["VersoesInvalidas"] == 1
     assert total["RegistrosInvalidos"] == 1
     assert total["FalhasValkey"] == 0
     tipos = por_tipo(saida)
     assert tipos["op"]["MarcadoresGravados"] == 1 and tipos["op"]["MarcadoresRejeitados"] == 1
+    assert tipos["opb"]["MarcadoresGravados"] == 2 and tipos["opb"]["MarcadoresRejeitados"] == 0
     assert tipos["custodia-vc"]["MarcadoresGravados"] == 1
     assert total["_aws"]["CloudWatchMetrics"][0]["Namespace"] == "ConsultasOperacoesCredito/InvalidadorCache"
 

@@ -1,7 +1,7 @@
 """Métricas no CloudWatch pelo Embedded Metric Format (EMF): documentos JSON no stdout da Lambda, sem chamada à API.
 
-Um documento por invocação, com os totais do lote, e um por tipo de chave (``op``, ``custodia-vc``) com os
-marcadores gravados e rejeitados.
+Um documento por invocação, com os totais do lote, e um por tipo de chave (``op``, ``opb``, ``custodia-vc``) com os
+marcadores gravados e rejeitados. No ``opb`` (versão por bloco), cada bloco marcado conta como um marcador.
 """
 
 import json
